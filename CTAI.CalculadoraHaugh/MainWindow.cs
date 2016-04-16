@@ -20,11 +20,12 @@ namespace CTAI.CalculadoraHaugh
 	public partial class MainWindow : Form 
 	{
 		private double eggWeight = 0.0d;
-		private double learningRate = 1.5d;
-		private int neuronCount = 14;
+		private double learningRate = 0.4d;
+		private int[] neuronCount = {4, 6, 4};
 		private int cycles = 15000;
 		private int cyclesBestParameters = 20;
 		private int neuronsBestParameters = 20;
+		private int layersBestParameters = 4;
 		private BackpropagationNetwork network;
 		private static int K = 4;// Número de K-médias
 		private static int D = 5000;//A distância entre duas cores
@@ -33,8 +34,8 @@ namespace CTAI.CalculadoraHaugh
 		public MainWindow ()
 		{
 			InitializeComponent();
-			LoadNetwork ();
-			//FindBestParameters ("/Users/rafaelneri/Dropbox/Mestrado/Inteligencia Artificial/Material Extra/Imagens Ovos Haugh/Trabalho/fotos reais/treinamento/");
+//			LoadNetwork ();
+			FindBestParameters ("/Volumes/MacintoshHDFiles/Documents/Mestrado/Inteligencia\\ Artificial/Material\\ Extra/Imagens\\ Ovos\\ Haugh/Trabalho/fotos\\ reais/treinamento");
 		}
 
 		private void open_Click(object sender, EventArgs e) 
@@ -118,15 +119,22 @@ namespace CTAI.CalculadoraHaugh
 
 				for (int j = 1; j <= neuronsBestParameters; j++) {
 					if (!results.ContainsKey (newCycle + "|" + j)) {
-						ConfigureNetwork (j);
+						int[] layerInput = new int[layersBestParameters];
+						for (int l = 0; l < layersBestParameters; l++) {
+							if(l == 0 || l == layersBestParameters-1)
+								layerInput [l] = j-1;
+							else
+								layerInput [l] = j;
+						}
 
-						network.Learn(trainingSet, newCycle);
-						network.StopLearning();
+						ConfigureNetwork (layerInput);
+
+						network.Learn (trainingSet, newCycle);
+						network.StopLearning ();
 						results.Add (newCycle + "|" + j, network.MeanSquaredError);
 						Console.WriteLine (newCycle + "|" + j + " - " + network.MeanSquaredError);
 
-						if(network.MeanSquaredError < valueBestResult)
-						{
+						if (network.MeanSquaredError < valueBestResult) {
 							valueBestResult = network.MeanSquaredError;
 							keyBestResult = newCycle + "|" + j;
 							bestNetwork = network;
@@ -154,13 +162,23 @@ namespace CTAI.CalculadoraHaugh
 		}
 
 		// Realiza configuração da rede
-		private void ConfigureNetwork(int neurons){
+		private void ConfigureNetwork(int[] neurons){
 			LinearLayer inputLayer = new LinearLayer(2);
-			SigmoidLayer hiddenLayer = new SigmoidLayer(neurons);
+			SigmoidLayer previousLayer = null;
 			SigmoidLayer outputLayer = new SigmoidLayer(1);
 
-			new BackpropagationConnector (inputLayer, hiddenLayer).Initializer = new RandomFunction(0d, learningRate);
-			new BackpropagationConnector (hiddenLayer, outputLayer).Initializer = new RandomFunction(0d, learningRate);
+			for (int i = 0; i < neurons.Length; i++) {
+				SigmoidLayer hiddenLayer = new SigmoidLayer(neurons[i]);
+				if (i == 0) {
+					new BackpropagationConnector (inputLayer, hiddenLayer).Initializer = new RandomFunction (0d, learningRate);
+				} else if (i == neurons.Length - 1) {
+					new BackpropagationConnector (hiddenLayer, outputLayer).Initializer = new RandomFunction (0d, learningRate);
+				} else {
+					new BackpropagationConnector (previousLayer, hiddenLayer).Initializer = new RandomFunction (0d, learningRate);
+				}
+
+				previousLayer = hiddenLayer;
+			}
 
 			network = new BackpropagationNetwork(inputLayer, outputLayer);
 			network.SetLearningRate(learningRate);
